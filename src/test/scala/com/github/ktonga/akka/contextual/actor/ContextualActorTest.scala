@@ -25,10 +25,13 @@ import scala.util.{Failure, Random, Success, Try}
 /**
   * Created by brendan on 7/16/17.
   */
+trait DummyMsg{
+
+}
 
 
 object DummyProtocol {
-  trait DummyMsg
+
 
   case class Tell(param: String) extends DummyMsg
 
@@ -56,7 +59,7 @@ class ActorA(val actorB: ActorRef) extends Actor with TracingActor {
 
   def receive: Receive = {
     case Tell(str) => doTell(str)
-    case Ask(question) => (actorB ?+ Ask(s"do you know $question?")) |+ sender
+    case Ask(question) => (actorB wrappedAsk Ask(s"do you know $question?")) |+ sender
     case fwr: ForwardResponse => log.info("Thanks! {}", fwr)
     case ForwardBehavior => context.become(forwardBehavior, false)
   }
@@ -113,6 +116,7 @@ class TestProxy(testingFor:ActorRef,underTest:ActorRef) extends  TracingActor wi
   import scala.util.Random
   import MessageContext._
   import akka.pattern.{ask => dontAsk}
+
 /*
   implicit def mapTry(m:Try[Msg[_]]):Try[Any] = {
     println(s"maptry called with $m")
@@ -124,23 +128,18 @@ class TestProxy(testingFor:ActorRef,underTest:ActorRef) extends  TracingActor wi
 
     case askit:AskProxy[_] =>
       implicit val _: Timeout = 5.seconds
-      val w = (underTest ?+ askit.msg)
-      println(s"asked got=$w")
-      w.onComplete{
+
+      val w = (underTest wrappedAsk askit.msg).mapResponseTo[AskResponse]
+
+      w.onComplete {
         case Success(s) =>
           println(s"got success=$s")
-          testingFor ! s.msg
+          testingFor ! s
         case Failure(f) =>
           testingFor ! f
+
       }
-/*
-      (underTest  ?+ askit.msg) onComplete{
-        case Success(s) =>
-          testingFor ! s.msg
-        case Failure(f) =>
-          testingFor ! f
-      }
-*/
+
     case msg =>
       msg match {
         case Ask(msg) =>

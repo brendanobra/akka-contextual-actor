@@ -28,7 +28,15 @@ trait Implicits {
 
   implicit def any2Msg[T](m: T)(implicit ctx: Option[MsgCtx]): Msg[T] = Msg(m, ctx)
 
+  implicit def msg2Payload[T](msg:Msg[_]) = {
+    msg.msg
+  }
   implicit def actorRef2ContextualActorRef(ref: ActorRef): ContextualActorRef = new ContextualActorRef(ref)
+
+  implicit class MsgWrangler[T](val msg: Msg[T]) {
+    def underlying[T]() = msg.msg
+
+  }
 }
 
 object Implicits extends Implicits
